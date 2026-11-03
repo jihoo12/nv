@@ -28,7 +28,10 @@ function M.format()
   local buf = vim.api.nvim_get_current_buf()
   if vim.bo[buf].buftype ~= '' or not vim.bo[buf].modifiable then return end
   local cmd = vim.deepcopy(M.formatters[vim.bo[buf].filetype])
-  if not cmd or vim.fn.executable(cmd[1]) == 0 then
+  local python = vim.bo[buf].filetype == 'python'
+  local executable = cmd and (python and require('nv.python').resolve_tool(cmd[1], buf)
+    or require('nv.environment').resolve(cmd[1]))
+  if not executable then
     local clients = vim.lsp.get_clients({ bufnr = buf, method = 'textDocument/formatting' })
     if #clients == 0 then
       vim.notify('NV: no formatter available. See :checkhealth nv', vim.log.levels.WARN)
@@ -39,6 +42,7 @@ function M.format()
     vim.lsp.buf.format({ bufnr = buf, id = clients[1].id, timeout_ms = 3000 })
     return
   end
+  cmd[1] = executable
   local file = vim.api.nvim_buf_get_name(buf)
   if file == '' then
     vim.notify('NV: give this buffer a filename before formatting.', vim.log.levels.WARN)
@@ -48,7 +52,8 @@ function M.format()
   local tick = vim.api.nvim_buf_get_changedtick(buf)
   local input = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), '\n')
   if vim.bo[buf].endofline then input = input .. '\n' end
-  vim.system(cmd, { stdin = input, text = true, cwd = M.root(), timeout = 10000 }, function(result)
+  local env = python and require('nv.python').command_env(buf) or require('nv.environment').command_env()
+  vim.system(cmd, { stdin = input, text = true, cwd = M.root(), timeout = 10000, env = env }, function(result)
     vim.schedule(function()
       if not vim.api.nvim_buf_is_valid(buf) or not vim.api.nvim_buf_is_loaded(buf) then return end
       if result.code ~= 0 then

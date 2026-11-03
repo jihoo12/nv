@@ -52,15 +52,15 @@ tools.ensure('broken')
 assert(failed.installs == 1, 'automatic failure retried repeatedly')
 assert(table.concat(notified):find('NvToolsInstall', 1, true), 'retry instructions missing')
 
-local executable = vim.fn.executable
-vim.fn.executable = function(cmd)
-  if cmd == 'nv-fixture-server' then return fixture_package('server-fixture').installed and 1 or 0 end
-  return executable(cmd)
-end
+package.loaded['nv.environment'] = { resolve = function(cmd)
+  if cmd == 'nv-fixture-server' and fixture_package('server-fixture').installed then return '/fixture/bin/server' end
+end }
 local enabled = 0
-vim.lsp.enable = function(name) assert(name == 'fixture'); enabled = enabled + 1 end
 local defaults = { cmd = { 'nv-fixture-server' }, filetypes = { 'nvtest' } }
-package.loaded['nv.lsp'] = { servers = { fixture = defaults }, active = { fixture = defaults } }
+package.loaded['nv.lsp'] = {
+  servers = { fixture = defaults }, active = { fixture = defaults },
+  enable = function(name) assert(name == 'fixture'); enabled = enabled + 1; return true end,
+}
 tools.options.servers.fixture = 'server-fixture'
 vim.bo.filetype = 'nvtest'
 local buf = vim.api.nvim_get_current_buf()

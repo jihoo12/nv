@@ -16,6 +16,10 @@ NV_TEST_PIN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["m
 python3 "$NV_TEST_ROOT/tests/seed.py"
 
 nvim --headless -u NONE \
+  -c "lua local ok,err=pcall(dofile,vim.env.NV_TEST_ROOT..'/tests/environment.lua'); if not ok then print(err); vim.cmd('cquit 1') end" \
+  -c 'qa!'
+
+nvim --headless -u NONE \
   -c "lua local ok,err=pcall(dofile,vim.env.NV_TEST_ROOT..'/tests/tooling.lua'); if not ok then print(err); vim.cmd('cquit 1') end" \
   -c 'qa!'
 

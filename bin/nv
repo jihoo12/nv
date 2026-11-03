@@ -1,6 +1,26 @@
 #!/bin/sh
 set -eu
 NV_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+# Non-login shells may not have sourced Nix's profile setup.
+nv_add_profile() {
+  if [ -d "$1/bin" ]; then PATH="$PATH:$1/bin"; fi
+}
+nv_add_profile "$HOME/.nix-profile"
+nv_add_profile "${XDG_STATE_HOME:-$HOME/.local/state}/nix/profile"
+nv_add_profile "${XDG_STATE_HOME:-$HOME/.local/state}/nix/profiles/profile"
+nv_add_profile "/etc/profiles/per-user/$(id -un)"
+nv_add_profile "/nix/var/nix/profiles/per-user/$(id -un)/profile"
+nv_add_profile /run/current-system/sw
+nv_add_profile /nix/var/nix/profiles/default
+for NV_PROFILE in ${NIX_PROFILES:-}; do nv_add_profile "$NV_PROFILE"; done
+export PATH
+if [ "${NV_RUNTIME_REENTRY:-0}" = 1 ]; then
+  unset NV_RUNTIME_REENTRY
+else
+  # Keep the project's tools/interpreter available after nix develop changes PATH.
+  export NV_INHERITED_PATH="$PATH"
+  export NV_INHERITED_PYTHONPATH="${PYTHONPATH:-}"
+fi
 if [ "${NV_RUNTIME_READY:-0}" != 1 ] && [ "${NV_OFFLINE:-0}" != 1 ] \
   && [ "${NV_USE_NIX:-auto}" != 0 ] && command -v nix >/dev/null 2>&1; then
   NV_NEEDS_RUNTIME=0
@@ -14,6 +34,7 @@ if [ "${NV_RUNTIME_READY:-0}" != 1 ] && [ "${NV_OFFLINE:-0}" != 1 ] \
   if [ "$NV_NEEDS_RUNTIME" = 1 ] || [ "${NV_USE_NIX:-auto}" = 1 ]; then
     echo 'NV: preparing editor runtimes with Nix (cached after first launch)…' >&2
     export NV_RUNTIME_READY=1
+    export NV_RUNTIME_REENTRY=1
     exec nix --extra-experimental-features 'nix-command flakes' develop "path:$NV_ROOT/runtime" -c "$NV_ROOT/bin/nv" "$@"
   fi
 fi

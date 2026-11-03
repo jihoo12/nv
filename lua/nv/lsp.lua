@@ -12,7 +12,7 @@ M.servers = {
   },
   pyright = {
     cmd = { 'pyright-langserver', '--stdio' }, filetypes = { 'python' },
-    root_markers = { 'pyproject.toml', 'pyrightconfig.json', 'setup.py', '.git' },
+    root_markers = require('nv.python').root_markers,
   },
   ts_ls = {
     cmd = { 'typescript-language-server', '--stdio' },
@@ -36,6 +36,21 @@ M.servers = {
     root_markers = { '.git' },
   },
 }
+
+function M.enable(name)
+  local config = M.active[name]
+  if not config then return false end
+  if type(config.cmd) == 'table' then
+    local executable = require('nv.environment').resolve(config.cmd[1])
+    if not executable then return false end
+    -- Do not mutate the default command: it is also used to match Mason packages.
+    local command = vim.deepcopy(config.cmd)
+    command[1] = executable
+    vim.lsp.config(name, { cmd = command })
+  end
+  vim.lsp.enable(name)
+  return true
+end
 
 function M.setup(overrides)
   vim.diagnostic.config({
@@ -74,8 +89,10 @@ function M.setup(overrides)
   end
   for name, config in pairs(M.active) do
     if config then
+      config.cmd_env = vim.tbl_extend('force', require('nv.environment').command_env(), config.cmd_env or {})
+      if name == 'pyright' then require('nv.python').configure(config) end
       vim.lsp.config(name, config)
-      if config.cmd and vim.fn.executable(config.cmd[1]) == 1 then vim.lsp.enable(name) end
+      M.enable(name)
     end
   end
   local tools = require('nv.tools')

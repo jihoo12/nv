@@ -7,6 +7,7 @@ function M.toggle()
     return
   end
   local cwd = require('nv.actions').root()
+  local env = require('nv.python').command_env(0)
   if not M.buf or not vim.api.nvim_buf_is_valid(M.buf) then M.buf = vim.api.nvim_create_buf(false, true) end
   local width = math.max(1, math.floor(vim.o.columns * 0.85))
   local height = math.max(1, math.floor((vim.o.lines - 2) * 0.75))
@@ -16,7 +17,7 @@ function M.toggle()
     style = 'minimal', border = 'rounded', title = ' NV terminal ', title_pos = 'center',
   })
   if vim.bo[M.buf].buftype ~= 'terminal' then
-    vim.fn.jobstart(vim.o.shell, { term = true, cwd = cwd })
+    vim.fn.jobstart(vim.o.shell, { term = true, cwd = cwd, env = env })
     vim.bo[M.buf].bufhidden = 'hide'
   end
   vim.cmd.startinsert()

@@ -19,6 +19,8 @@ function M.check()
     h.ok('Wayland clipboard provider found')
   else h.info('Clipboard: see :checkhealth vim.provider if Space y / Space p are unavailable.') end
   h.start('Automatic tooling')
+  local environment = require('nv.environment')
+  h.info('External tools are resolved from the caller environment and Nix profiles before the runtime/Mason.')
   local tools, ts = require('nv.tools'), require('nv.treesitter')
   h.info('Offline mode: ' .. tostring(vim.env.NV_OFFLINE == '1'))
   h.info('Mason available: ' .. tostring(tools.available == true))
@@ -42,15 +44,27 @@ function M.check()
   for _, name in ipairs(vim.fn.sort(vim.tbl_keys(require('nv.lsp').active or {}))) do
     local cfg = require('nv.lsp').active[name]
     if cfg == false then h.info(name .. ': disabled')
-    elseif cfg.cmd and vim.fn.executable(cfg.cmd[1]) == 1 then h.ok(name .. ': ' .. cfg.cmd[1])
+    elseif type(cfg.cmd) == 'table' and environment.resolve(cfg.cmd[1]) then
+      local path = environment.resolve(cfg.cmd[1])
+      h.ok(name .. ': ' .. path .. ' (' .. environment.source(path) .. ')')
+    elseif type(cfg.cmd) == 'function' then h.info(name .. ': custom command function')
     else h.info(name .. ': installed on first matching file (' .. ((cfg.cmd or {})[1] or 'no command') .. ')') end
   end
+  h.start('Python environment')
+  local python = require('nv.python').detect()
+  if python then
+    h.ok(python.path .. ' (' .. python.source .. ')')
+    h.info('Workspace: ' .. python.root)
+    h.info('Pyright queries this interpreter for installed library paths. Change it with :NvPython /path/to/python.')
+  else h.warn('No Python interpreter selected/found. Use :NvPython /path/to/venv/bin/python.') end
   h.start('Formatters (optional)')
   local seen = {}
   for _, cmd in pairs(require('nv.actions').formatters) do
     if not seen[cmd[1]] then
       seen[cmd[1]] = true
-      if vim.fn.executable(cmd[1]) == 1 then h.ok(cmd[1] .. ' found') else h.info(cmd[1] .. ' not installed; LSP formatting used when available') end
+      local path = require('nv.python').resolve_tool(cmd[1], 0)
+      if path then h.ok(path .. ' (' .. environment.source(path) .. ')')
+      else h.info(cmd[1] .. ' not installed; LSP formatting used when available') end
     end
   end
 end

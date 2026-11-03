@@ -2,6 +2,11 @@
 return {
   theme = 'nv',
   icons = false, -- Set true if your terminal uses a Nerd Font.
+  python = {
+    auto_detect = true, -- Active virtualenv, project .venv/venv, Conda, then caller/Nix Python.
+    -- interpreter = '/path/to/venv/bin/python',
+    -- interpreter = function(root) return root .. '/.venv/bin/python' end,
+  },
   tools = {
     auto_install = true,
     formatters = true,

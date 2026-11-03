@@ -64,8 +64,8 @@ function M.ensure_buffer(buf, force)
   local lsp = require('nv.lsp')
   for name, config in pairs(lsp.active or {}) do
     if config and vim.tbl_contains(config.filetypes or {}, ft) and type(config.cmd) == 'table' then
-      if vim.fn.executable(config.cmd[1]) == 1 then
-        vim.lsp.enable(name)
+      if require('nv.environment').resolve(config.cmd[1]) then
+        lsp.enable(name)
       else
         local package = M.options.servers[name]
         if package == nil and lsp.servers[name] and config.cmd[1] == lsp.servers[name].cmd[1] then
@@ -73,9 +73,9 @@ function M.ensure_buffer(buf, force)
         end
         if package then
           M.ensure(package, function(success)
-            if success and lsp.active[name] and vim.fn.executable(config.cmd[1]) == 1 then
+            if success and lsp.active[name] then
               -- enable() also attaches to matching buffers already open.
-              vim.lsp.enable(name)
+              lsp.enable(name)
             end
           end)
         end
@@ -84,7 +84,9 @@ function M.ensure_buffer(buf, force)
   end
   if M.options.formatters then
     local cmd = require('nv.actions').formatters[ft]
-    if cmd and vim.fn.executable(cmd[1]) == 0 and M.formatter_packages[cmd[1]] then
+    local existing = cmd and (ft == 'python' and require('nv.python').resolve_tool(cmd[1], buf)
+      or require('nv.environment').resolve(cmd[1]))
+    if cmd and not existing and M.formatter_packages[cmd[1]] then
       M.ensure(M.formatter_packages[cmd[1]])
     end
   end
@@ -109,7 +111,7 @@ function M.setup(options)
   if not options.enabled then return end
   if not require('nv.bootstrap').load('mason.nvim') then return end
   require('mason').setup({
-    PATH = 'prepend', max_concurrent_installers = 3,
+    PATH = 'append', max_concurrent_installers = 3,
     registry_cache = { refresh = vim.env.NV_OFFLINE ~= '1' },
   })
   M.available = true

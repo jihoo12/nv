@@ -43,6 +43,7 @@ vim.api.nvim_create_autocmd('VimEnter', {
         require('nv.tools').ensure('tree-sitter-cli', function(success) cli_ready = success end)
         assert(vim.wait(60000, function() return cli_ready end, 50), 'Mason tree-sitter CLI installation failed')
         print('PASS: managed Tree-sitter CLI installed')
+        dofile(vim.g.nv_root .. '/tests/python-lsp.lua')
       end)
       if not ok then
         print(err)

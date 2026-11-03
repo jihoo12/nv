@@ -14,6 +14,7 @@ local defaults = {
   theme = 'nv',
   icons = false,
   servers = {},
+  python = { auto_detect = true },
   tools = { enabled = true, auto_install = true, formatters = true, ensure_installed = {}, servers = {} },
   treesitter = { enabled = true, auto_install = true, ensure_installed = {} },
   setup = function() end,
@@ -22,6 +23,8 @@ local ok, user = pcall(require, 'user')
 if not ok and not tostring(user):match("module 'user' not found") then error(user) end
 local config = vim.tbl_deep_extend('force', defaults, ok and user or {})
 require('nv.config').options = config
+require('nv.environment').setup()
+require('nv.python').setup(config.python)
 
 require('nv.options')
 vim.cmd.colorscheme(config.theme)
