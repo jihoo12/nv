@@ -1,0 +1,103 @@
+local function check(value, message) assert(value, message) end
+local function wait_for(fn, message) check(vim.wait(5000, fn, 10), message) end
+local root = vim.g.nv_root
+
+check(vim.g.colors_name == 'nv', 'theme missing')
+check(MiniPick and MiniFiles and MiniCompletion and MiniDiff, 'mini modules missing')
+check(require('nv.tools').available, 'Mason not configured')
+check(require('nv.treesitter').available, 'Tree-sitter not configured')
+check(vim.fn.exists(':Mason') == 2, 'Mason command missing')
+check(vim.fn.exists(':TSInstall') == 2, 'TSInstall command missing')
+check(vim.treesitter.language.get_lang('typescriptreact') == 'tsx', 'TSX parser mapping missing')
+check(vim.treesitter.language.get_lang('javascriptreact') == 'javascript', 'JSX parser mapping missing')
+check(vim.treesitter.language.get_lang('sh') == 'bash', 'shell parser mapping missing')
+check(vim.fn.maparg('<leader>ff', 'n') ~= '', 'file picker mapping missing')
+check(vim.fn.maparg('gc', 'n') ~= '', 'native commenting missing')
+check(vim.fn.exists(':NvFormat') == 2, 'format command missing')
+check(vim.fn.exists(':Git') == 2, 'Git command missing')
+check(vim.fn.stdpath('data'):match('/nv$'), 'app data must be isolated')
+
+-- Disabled and custom servers must survive configuration merging.
+require('nv.lsp').setup({ pyright = false, nv_test = {
+  cmd = { 'python3', root .. '/tests/mock_lsp.py' },
+  filetypes = { 'nvtest' }, root_markers = { '.git' },
+} })
+check(require('nv.lsp').active.pyright == false, 'server disabling failed')
+vim.cmd.enew()
+vim.api.nvim_buf_set_name(0, root .. '/tests/fixture.nvtest')
+vim.bo.filetype = 'nvtest'
+local buf = vim.api.nvim_get_current_buf()
+wait_for(function() return #vim.lsp.get_clients({ bufnr = buf }) > 0 end, 'LSP did not attach')
+wait_for(function() return vim.fn.maparg('<leader>cr', 'n') ~= '' end, 'LspAttach mappings missing')
+local client = vim.lsp.get_clients({ bufnr = buf })[1]
+local response = client:request_sync('textDocument/hover', {
+  textDocument = { uri = vim.uri_from_bufnr(buf) }, position = { line = 0, character = 0 },
+}, 3000, buf)
+check(response and response.result.contents.value == 'NV test server', 'LSP request failed')
+client:stop(true)
+
+-- Exercise the actual file browser and picker, including the source directory.
+require('mini.files').open(root)
+check(require('mini.files').get_explorer_state() ~= nil, 'file explorer did not open')
+require('mini.files').close()
+local picker_checked = false
+vim.schedule(function()
+  picker_checked = MiniPick.is_picker_active() and MiniPick.get_picker_opts().source.cwd == root
+  MiniPick.stop()
+end)
+MiniPick.builtin.files({}, { source = { cwd = root } })
+check(picker_checked, 'file picker did not use project root')
+
+-- Format through a real subprocess, then ensure edits made in flight win.
+vim.cmd.enew()
+vim.api.nvim_buf_set_name(0, vim.fn.tempname() .. '.lua')
+vim.bo.filetype = 'lua'
+local actions = require('nv.actions')
+local original = actions.formatters.lua
+actions.formatters.lua = { 'python3', '-c', 'import sys; print(sys.stdin.read().upper(), end="")' }
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello' })
+actions.format()
+wait_for(function() return vim.api.nvim_get_current_line() == 'HELLO' end, 'formatter output not applied')
+check(vim.bo.modified, 'format should leave file unsaved')
+local messages, notify = {}, vim.notify
+vim.notify = function(msg) messages[#messages + 1] = msg end
+actions.formatters.lua = { 'python3', '-c', 'import sys,time; data=sys.stdin.read(); time.sleep(.15); print(data.upper(), end="")' }
+actions.format()
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'new edit' })
+wait_for(function() return #messages > 0 end, 'stale result was not reported')
+check(vim.api.nvim_get_current_line() == 'new edit', 'formatter overwrote a newer edit')
+messages = {}
+actions.formatters.lua = { 'python3', '-c', 'import sys; sys.stderr.write("test failure"); sys.exit(1)' }
+actions.format()
+wait_for(function() return #messages > 0 end, 'formatter error was not reported')
+check(vim.api.nvim_get_current_line() == 'new edit', 'failed formatter changed buffer')
+actions.formatters.lua, vim.notify = original, notify
+
+-- Floating terminal keeps its running buffer when hidden and reopened.
+vim.bo.modified = false
+local terminal = require('nv.terminal')
+terminal.toggle()
+check(vim.bo.buftype == 'terminal', 'terminal not started')
+local term_buf = terminal.buf
+terminal.toggle()
+check(vim.api.nvim_buf_is_valid(term_buf), 'hiding killed terminal buffer')
+terminal.toggle()
+check(terminal.buf == term_buf, 'reopening replaced terminal buffer')
+terminal.toggle()
+
+-- Dashboard must not leak its window options into the next document.
+vim.cmd.enew()
+require('nv.dashboard').open()
+check(vim.bo.filetype == 'nvstart', 'dashboard not shown')
+vim.cmd.enew()
+check(vim.wo.number and vim.wo.relativenumber, 'dashboard leaked number options')
+vim.wo.relativenumber = false
+require('nv.dashboard').open()
+vim.cmd.enew()
+check(not vim.wo.relativenumber, 'dashboard ignored user number settings')
+
+vim.cmd('checkhealth nv')
+local report = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
+check(report:find('pinned at', 1, true), 'health report missing dependency pin')
+check(not report:find('ERROR', 1, true), 'health report contains an error')
+print('PASS: startup, plugins, explorer/picker, LSP, formatter safety, terminal, dashboard, health')

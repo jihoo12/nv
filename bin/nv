@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+NV_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+if [ "${NV_RUNTIME_READY:-0}" != 1 ] && [ "${NV_OFFLINE:-0}" != 1 ] \
+  && [ "${NV_USE_NIX:-auto}" != 0 ] && command -v nix >/dev/null 2>&1; then
+  NV_NEEDS_RUNTIME=0
+  for NV_TOOL in nvim git curl tar unzip cc node npm python3 go; do
+    if ! command -v "$NV_TOOL" >/dev/null 2>&1; then NV_NEEDS_RUNTIME=1; fi
+  done
+  # Mason requires GNU tar; BusyBox tar cannot unpack all package archives.
+  case "$(tar --version 2>/dev/null || true)" in
+    *busybox*|*BusyBox*) NV_NEEDS_RUNTIME=1 ;;
+  esac
+  if [ "$NV_NEEDS_RUNTIME" = 1 ] || [ "${NV_USE_NIX:-auto}" = 1 ]; then
+    echo 'NV: preparing editor runtimes with Nix (cached after first launch)…' >&2
+    export NV_RUNTIME_READY=1
+    exec nix --extra-experimental-features 'nix-command flakes' develop "path:$NV_ROOT/runtime" -c "$NV_ROOT/bin/nv" "$@"
+  fi
+fi
+export NVIM_APPNAME=nv
+exec nvim -u "$NV_ROOT/init.lua" "$@"

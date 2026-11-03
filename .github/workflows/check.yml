@@ -1,0 +1,34 @@
+name: Check NV
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        neovim: [v0.12.0, stable]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Neovim
+        env:
+          NV_VERSION: ${{ matrix.neovim }}
+        run: |
+          curl --fail --location --retry 3 "https://github.com/neovim/neovim/releases/download/$NV_VERSION/nvim-linux-x86_64.tar.gz" -o /tmp/nvim.tar.gz
+          tar -xzf /tmp/nvim.tar.gz -C /tmp
+          echo /tmp/nvim-linux-x86_64/bin >> "$GITHUB_PATH"
+      - name: Integration checks
+        run: sh tests/run.sh
+      - name: Prepare runtime for download integration checks
+        if: matrix.neovim == 'stable'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv gcc g++ curl tar gzip unzip
+      - name: Real automatic installs and offline reuse
+        if: matrix.neovim == 'stable'
+        run: sh tests/auto-install.sh
