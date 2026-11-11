@@ -88,6 +88,7 @@ Nix 환경 준비는 생략하므로 Nix 도구가 필요하면 준비된 환경
 | `Space y` / `Space p` | 시스템 클립보드 복사 / 붙여넣기 |
 | `Space un` / `Space uw` / `Space uh` | 상대 줄 번호 / 줄바꿈 / 상태 점검 |
 | `Space uf` | 이번 세션의 저장 시 포맷 토글 |
+| `Space ud` / `Space uD` | 진단(오류 표시) 전체 / 현재 버퍼만 켜기·끄기 |
 | `sa` / `sd` / `sr` | surround 추가 / 삭제 / 변경 |
 | `Alt-h/j/k/l` | 현재 줄 또는 선택 영역 이동 |
 | `gS` / `ga` | 인자 줄바꿈 토글 / 정렬 |

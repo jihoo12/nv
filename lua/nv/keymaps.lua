@@ -10,6 +10,15 @@ function M.setup(plugins)
   map('n', '<leader>cq', vim.diagnostic.setqflist, 'Diagnostics to quickfix')
   map('n', '<leader>uh', '<cmd>checkhealth nv<cr>', 'NV health')
   map('n', '<leader>un', function() vim.wo.relativenumber = not vim.wo.relativenumber end, 'Toggle relative numbers')
+  map('n', '<leader>ud', function()
+    vim.diagnostic.enable(not vim.diagnostic.is_enabled())
+    vim.notify('NV: diagnostics ' .. (vim.diagnostic.is_enabled() and 'enabled' or 'disabled'))
+  end, 'Toggle diagnostics')
+  map('n', '<leader>uD', function()
+    local filter = { bufnr = 0 }
+    vim.diagnostic.enable(not vim.diagnostic.is_enabled(filter), filter)
+    vim.notify('NV: diagnostics ' .. (vim.diagnostic.is_enabled(filter) and 'enabled' or 'disabled') .. ' in this buffer')
+  end, 'Toggle diagnostics in this buffer')
   map('n', '<leader>uf', function()
     local config = require('nv.config').options
     config.format_on_save = not config.format_on_save

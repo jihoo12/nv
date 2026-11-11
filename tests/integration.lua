@@ -50,6 +50,23 @@ local response = client:request_sync('textDocument/hover', {
 check(response and response.result.contents.value == 'NV test server', 'LSP request failed')
 client:stop(true)
 
+-- Diagnostics can be silenced everywhere or for one buffer, and restored.
+local function press(keys) vim.api.nvim_feedkeys(vim.keycode(keys), 'x', false) end
+local quiet_notify = vim.notify
+vim.notify = function() end
+press('<Space>ud')
+check(not vim.diagnostic.is_enabled(), 'diagnostics toggle did not disable')
+press('<Space>ud')
+check(vim.diagnostic.is_enabled(), 'diagnostics toggle did not re-enable')
+press('<Space>uD')
+check(not vim.diagnostic.is_enabled({ bufnr = 0 }), 'buffer diagnostics toggle did not disable')
+vim.cmd.new()
+check(vim.diagnostic.is_enabled({ bufnr = 0 }), 'buffer toggle silenced another buffer')
+vim.cmd.close()
+press('<Space>uD')
+check(vim.diagnostic.is_enabled({ bufnr = 0 }), 'buffer diagnostics toggle did not re-enable')
+vim.notify = quiet_notify
+
 -- Exercise the actual file browser and picker, including the source directory.
 require('mini.files').open(root)
 check(require('mini.files').get_explorer_state() ~= nil, 'file explorer did not open')

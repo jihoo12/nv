@@ -81,6 +81,7 @@ are not bundled.
 | `Space y` / `Space p` | System clipboard copy / paste |
 | `Space un` / `Space uw` / `Space uh` | Relative numbers / wrapping / health check |
 | `Space uf` | Toggle format on save for this session |
+| `Space ud` / `Space uD` | Toggle diagnostics everywhere / in this buffer |
 | `sa` / `sd` / `sr` | Add / delete / replace surround |
 | `Alt-h/j/k/l` | Move line or selection |
 | `gS` / `ga` | Split/join arguments / align |
