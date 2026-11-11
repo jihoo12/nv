@@ -1,4 +1,5 @@
 -- NV: small, predictable, and yours.
+if vim.loader then vim.loader.enable() end
 local root = vim.fs.dirname(debug.getinfo(1, 'S').source:sub(2))
 vim.opt.rtp:prepend(root)
 vim.g.nv_root = root
@@ -13,6 +14,7 @@ end
 local defaults = {
   theme = 'nv',
   icons = false,
+  format_on_save = false,
   servers = {},
   python = { auto_detect = true },
   tools = { enabled = true, auto_install = true, formatters = true, ensure_installed = {}, servers = {} },

@@ -21,6 +21,19 @@ assert(env.resolve('nv-fixture-ls') == caller_ls, 'runtime shadowed caller tool'
 assert(env.resolve('nv-profile-ls') == profile_ls, 'Nix profile was not discovered')
 env.setup()
 assert(vim.fn.exepath('nv-profile-ls') == profile_ls, 'direct nvim startup did not expose Nix tools to plugins')
+-- Lookups are cached: hits are re-validated, misses expire or are cleared after installs.
+assert(env.resolve('nv-late-tool') == nil, 'fixture tool unexpectedly present')
+local late = executable(caller .. '/nv-late-tool')
+assert(env.resolve('nv-late-tool') == nil, 'lookup miss was not cached')
+env.refresh()
+assert(env.resolve('nv-late-tool') == late, 'refresh did not clear a cached miss')
+vim.fn.delete(late)
+assert(env.resolve('nv-late-tool') == nil, 'cached hit outlived its executable')
+local lookups, real_executable = 0, vim.fn.executable
+vim.fn.executable = function(path) lookups = lookups + 1; return real_executable(path) end
+for _ = 1, 20 do env.resolve('nv-profile-ls'); env.resolve('nv-absent-tool') end
+vim.fn.executable = real_executable
+assert(lookups < 20 + #vim.split(env.path(), ':') * 2, 'repeated lookups rescanned PATH (' .. lookups .. ')')
 assert(env.command_env().PYTHONPATH == temp .. '/python-libs', 'caller PYTHONPATH was lost')
 
 local caller_python = executable(caller .. '/python3')
@@ -87,6 +100,9 @@ local overrides = {}
 for name in pairs(require('nv.lsp').servers) do overrides[name] = false end
 overrides.fixture = { cmd = { 'nv-fixture-ls' }, filetypes = { 'nvfixture' } }
 require('nv.lsp').setup(overrides)
+assert(vim.lsp.config.fixture.cmd[1] == 'nv-fixture-ls', 'server command was searched for at startup')
+vim.cmd.enew()
+vim.bo.filetype = 'nvfixture'
 assert(vim.lsp.config.fixture.cmd[1] == caller_ls, 'native LSP did not use the caller executable')
 assert(require('nv.lsp').active.fixture.cmd[1] == 'nv-fixture-ls', 'default command was mutated')
 vim.bo.modified = false

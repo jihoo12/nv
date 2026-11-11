@@ -1,8 +1,11 @@
 local M = {}
 
 function M.spec(name)
-  local contents = table.concat(vim.fn.readfile(vim.g.nv_root .. '/plugins-lock.json'), '\n')
-  return vim.json.decode(contents)[name or 'mini.nvim']
+  if not M.lock then
+    local contents = table.concat(vim.fn.readfile(vim.g.nv_root .. '/plugins-lock.json'), '\n')
+    M.lock = vim.json.decode(contents)
+  end
+  return M.lock[name or 'mini.nvim']
 end
 
 function M.path(name)

@@ -48,7 +48,9 @@ function M.check()
       local path = environment.resolve(cfg.cmd[1])
       h.ok(name .. ': ' .. path .. ' (' .. environment.source(path) .. ')')
     elseif type(cfg.cmd) == 'function' then h.info(name .. ': custom command function')
-    else h.info(name .. ': installed on first matching file (' .. ((cfg.cmd or {})[1] or 'no command') .. ')') end
+    elseif tools.options.servers[name] or tools.server_packages[name] then
+      h.info(name .. ': installed on first matching file (' .. ((cfg.cmd or {})[1] or 'no command') .. ')')
+    else h.info(name .. ': used when ' .. ((cfg.cmd or {})[1] or 'its command') .. ' is in your environment (not installed by NV)') end
   end
   h.start('Python environment')
   local python = require('nv.python').detect()

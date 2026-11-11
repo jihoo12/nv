@@ -52,14 +52,21 @@ tools.ensure('broken')
 assert(failed.installs == 1, 'automatic failure retried repeatedly')
 assert(table.concat(notified):find('NvToolsInstall', 1, true), 'retry instructions missing')
 
-package.loaded['nv.environment'] = { resolve = function(cmd)
+local refreshed = 0
+package.loaded['nv.environment'] = { refresh = function() refreshed = refreshed + 1 end, resolve = function(cmd)
   if cmd == 'nv-fixture-server' and fixture_package('server-fixture').installed then return '/fixture/bin/server' end
 end }
 local enabled = 0
 local defaults = { cmd = { 'nv-fixture-server' }, filetypes = { 'nvtest' } }
 package.loaded['nv.lsp'] = {
   servers = { fixture = defaults }, active = { fixture = defaults },
-  enable = function(name) assert(name == 'fixture'); enabled = enabled + 1; return true end,
+  enable = function(name)
+    assert(name == 'fixture')
+    local config = package.loaded['nv.lsp'].active[name]
+    if not config or not package.loaded['nv.environment'].resolve(config.cmd[1]) then return false end
+    enabled = enabled + 1
+    return true
+  end,
 }
 tools.options.servers.fixture = 'server-fixture'
 vim.bo.filetype = 'nvtest'
@@ -72,6 +79,13 @@ tools.ensure_buffer(buf)
 tools.ensure_buffer(buf)
 wait_for(function() return enabled > 0 end, 'newly installed server was not enabled')
 assert(fixture_package('server-fixture').installs == 1, 'multiple buffers duplicated server installation')
+assert(refreshed > 0, 'installation did not clear cached executable lookups')
+-- Without Mason, tools already in the environment must still be activated.
+tools.available = false
+local before_unmanaged = enabled
+tools.ensure_buffer(buf)
+assert(enabled == before_unmanaged + 1, 'existing server ignored when Mason is unavailable')
+tools.available = true
 
 -- Opting out and custom commands must not install an unrelated default package.
 package.loaded['nv.lsp'].active.fixture = false

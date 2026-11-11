@@ -10,6 +10,8 @@ M.formatter_packages = { stylua = 'stylua', black = 'black', prettier = 'prettie
 local function finish(name, success, reason)
   local callbacks = M.pending[name] or {}
   M.pending[name] = nil
+  -- Newly installed executables must not be hidden by a cached lookup miss.
+  require('nv.environment').refresh()
   if success then M.failed[name] = nil end
   if not success then
     M.failed[name] = reason or 'installation failed'
@@ -58,15 +60,14 @@ end
 function M.ensure_buffer(buf, force)
   if not vim.api.nvim_buf_is_valid(buf) or not vim.api.nvim_buf_is_loaded(buf)
     or vim.bo[buf].buftype ~= '' then return end
-  if not M.available or (not force and not M.options.auto_install) then return end
   local ft = vim.bo[buf].filetype
   if ft == '' then return end
+  local install = M.available and (force or M.options.auto_install)
   local lsp = require('nv.lsp')
   for name, config in pairs(lsp.active or {}) do
     if config and vim.tbl_contains(config.filetypes or {}, ft) and type(config.cmd) == 'table' then
-      if require('nv.environment').resolve(config.cmd[1]) then
-        lsp.enable(name)
-      else
+      -- Servers are resolved when their filetype first appears, never at startup.
+      if not lsp.enable(name) and install then
         local package = M.options.servers[name]
         if package == nil and lsp.servers[name] and config.cmd[1] == lsp.servers[name].cmd[1] then
           package = M.server_packages[name]
@@ -82,7 +83,7 @@ function M.ensure_buffer(buf, force)
       end
     end
   end
-  if M.options.formatters then
+  if install and M.options.formatters then
     local cmd = require('nv.actions').formatters[ft]
     local existing = cmd and (ft == 'python' and require('nv.python').resolve_tool(cmd[1], buf)
       or require('nv.environment').resolve(cmd[1]))
@@ -93,6 +94,7 @@ function M.ensure_buffer(buf, force)
 end
 
 function M.retry()
+  require('nv.environment').refresh()
   M.failed = {}
   for _, name in ipairs(M.options.ensure_installed) do M.ensure(name) end
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do M.ensure_buffer(buf, true) end

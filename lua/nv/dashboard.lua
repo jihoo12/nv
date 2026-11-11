@@ -23,8 +23,8 @@ function M.open()
   local previous = { number = vim.wo.number, relativenumber = vim.wo.relativenumber, cursorline = vim.wo.cursorline }
   vim.wo.number, vim.wo.relativenumber, vim.wo.cursorline = false, false, false
   local ns = vim.api.nvim_create_namespace('NvDashboard')
-  vim.api.nvim_buf_add_highlight(buf, ns, 'NvTitle', 2, 0, -1)
-  vim.api.nvim_buf_add_highlight(buf, ns, 'Comment', 3, 0, -1)
+  vim.api.nvim_buf_set_extmark(buf, ns, 2, 0, { line_hl_group = 'NvTitle' })
+  vim.api.nvim_buf_set_extmark(buf, ns, 3, 0, { line_hl_group = 'Comment' })
   for _, key in ipairs({ 'f', 'e', 'r' }) do
     local target = ({ f = '<leader>ff', e = '<leader>e', r = '<leader>fr' })[key]
     vim.keymap.set('n', key, target, { buffer = buf, remap = true, nowait = true })

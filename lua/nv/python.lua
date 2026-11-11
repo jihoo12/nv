@@ -113,6 +113,7 @@ function M.select(value, buf)
     end
     M.selected[root] = path
   end
+  require('nv.environment').refresh()
   -- Update only this workspace, preserving every other Python client's settings.
   for _, client in ipairs(vim.lsp.get_clients({ name = 'pyright' })) do
     if client.config.root_dir == root then

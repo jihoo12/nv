@@ -1,13 +1,23 @@
 -- Resolve user/dev-shell tools independently of the editor's bootstrap runtime.
 local M = {}
 
+-- PATH lookups are cached: on WSL or network mounts each miss costs milliseconds per directory.
+local cache = { resolved = {}, missing = {} }
+local MISS_TTL_NS = 2e9
+
+function M.refresh()
+  cache = { resolved = {}, missing = {} }
+end
+
 function M.profile_bins()
+  if cache.profiles then return cache.profiles end
   local home = vim.uv.os_homedir()
   local state = vim.env.XDG_STATE_HOME or (home .. '/.local/state')
+  local user = vim.uv.os_get_passwd().username
   local profiles = {
     home .. '/.nix-profile', state .. '/nix/profile', state .. '/nix/profiles/profile',
-    '/etc/profiles/per-user/' .. vim.uv.os_get_passwd().username,
-    '/nix/var/nix/profiles/per-user/' .. vim.uv.os_get_passwd().username .. '/profile',
+    '/etc/profiles/per-user/' .. user,
+    '/nix/var/nix/profiles/per-user/' .. user .. '/profile',
     '/run/current-system/sw',
     '/nix/var/nix/profiles/default',
   }
@@ -16,6 +26,7 @@ function M.profile_bins()
   for _, profile in ipairs(profiles) do
     if vim.fn.isdirectory(profile .. '/bin') == 1 then result[#result + 1] = profile .. '/bin' end
   end
+  cache.profiles = result
   return result
 end
 
@@ -35,10 +46,23 @@ function M.resolve(command, prefix)
   if command:find('/', 1, true) then
     return vim.fn.executable(command) == 1 and vim.fs.normalize(vim.fn.fnamemodify(command, ':p')) or nil
   end
-  for _, dir in ipairs(vim.split(M.path(prefix), ':', { plain = true, trimempty = true })) do
+  local search = M.path(prefix)
+  local key = command .. '\0' .. search
+  local hit = cache.resolved[key]
+  -- A hit costs one stat; a removed tool falls through to a fresh search.
+  if hit and vim.fn.executable(hit) == 1 then return hit end
+  local missed = cache.missing[key]
+  -- Misses expire quickly so tools installed from a terminal are noticed without a restart.
+  if missed and vim.uv.hrtime() - missed < MISS_TTL_NS then return end
+  cache.resolved[key], cache.missing[key] = nil, nil
+  for _, dir in ipairs(vim.split(search, ':', { plain = true, trimempty = true })) do
     local path = dir .. '/' .. command
-    if vim.fn.executable(path) == 1 then return path end
+    if vim.fn.executable(path) == 1 then
+      cache.resolved[key] = path
+      return path
+    end
   end
+  cache.missing[key] = vim.uv.hrtime()
 end
 
 function M.command_env(prefix)

@@ -31,6 +31,13 @@ o.fillchars:append({ eob = ' ' })
 o.shortmess:append('I')
 o.confirm = true
 o.exrc = false
+o.winborder = 'rounded'
+-- Tree-sitter folds, all open by default; buffers without a parser simply have none.
+o.foldmethod = 'expr'
+o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+o.foldtext = ''
+o.foldlevel = 99
+o.foldlevelstart = 99
 o.sessionoptions = { 'buffers', 'curdir', 'folds', 'help', 'tabpages', 'winsize' }
 
 local group = vim.api.nvim_create_augroup('NvCore', { clear = true })

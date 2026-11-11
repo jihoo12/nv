@@ -16,6 +16,18 @@ check(vim.fn.maparg('gc', 'n') ~= '', 'native commenting missing')
 check(vim.fn.exists(':NvFormat') == 2, 'format command missing')
 check(vim.fn.exists(':Git') == 2, 'Git command missing')
 check(vim.fn.stdpath('data'):match('/nv$'), 'app data must be isolated')
+check(vim.loader.enabled, 'Lua module cache is not enabled')
+-- Startup must not search PATH for language servers that no open file needs.
+for name in pairs(require('nv.lsp').servers) do
+  check(not require('nv.lsp').enabled[name], name .. ' was resolved at startup')
+end
+-- `gr` must not be a prefix of built-in mappings, or key hints wait for Enter.
+for _, key in ipairs({ 'grn', 'gra', 'grr', 'gri', 'grt', 'grx' }) do
+  check(vim.fn.maparg(key, 'n') == '', key .. ' still shadows gr')
+end
+for _, group in ipairs({ 'MiniTablineCurrent', 'DiagnosticUnderlineHint', 'LspInlayHint', 'Folded' }) do
+  check(next(vim.api.nvim_get_hl(0, { name = group })) ~= nil, 'theme lacks ' .. group)
+end
 
 -- Disabled and custom servers must survive configuration merging.
 require('nv.lsp').setup({ pyright = false, nv_test = {
@@ -29,6 +41,8 @@ vim.bo.filetype = 'nvtest'
 local buf = vim.api.nvim_get_current_buf()
 wait_for(function() return #vim.lsp.get_clients({ bufnr = buf }) > 0 end, 'LSP did not attach')
 wait_for(function() return vim.fn.maparg('<leader>cr', 'n') ~= '' end, 'LspAttach mappings missing')
+check(vim.fn.maparg('gr', 'n') ~= '' and vim.fn.maparg('gy', 'n') ~= '', 'LSP navigation mappings missing')
+check(vim.fn.maparg('<leader>ca', 'x') ~= '', 'range code action mapping missing')
 local client = vim.lsp.get_clients({ bufnr = buf })[1]
 local response = client:request_sync('textDocument/hover', {
   textDocument = { uri = vim.uri_from_bufnr(buf) }, position = { line = 0, character = 0 },
@@ -71,6 +85,26 @@ actions.formatters.lua = { 'python3', '-c', 'import sys; sys.stderr.write("test 
 actions.format()
 wait_for(function() return #messages > 0 end, 'formatter error was not reported')
 check(vim.api.nvim_get_current_line() == 'new edit', 'failed formatter changed buffer')
+messages = {}
+actions.formatters.lua = { 'python3', '-c', 'import sys; sys.exit(3)' }
+actions.format()
+wait_for(function() return #messages > 0 end, 'silent formatter failure was not reported')
+check(messages[1]:find('exited with code 3', 1, true), 'failure without stderr has no explanation: ' .. messages[1])
+
+-- Format on save is opt-in, synchronous, and can be exempted per buffer.
+actions.formatters.lua = { 'python3', '-c', 'import sys; print(sys.stdin.read().upper(), end="")' }
+local function saved() return table.concat(vim.fn.readfile(vim.api.nvim_buf_get_name(0)), '\n') end
+vim.cmd('silent write')
+check(saved() == 'new edit', 'format on save ran without opting in')
+require('nv.config').options.format_on_save = true
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'saved text' })
+vim.cmd('silent write')
+check(saved() == 'SAVED TEXT' and not vim.bo.modified, 'format on save did not format the written file')
+vim.b.nv_format_on_save = false
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'exempt' })
+vim.cmd('silent write')
+check(saved() == 'exempt', 'buffer exemption ignored')
+require('nv.config').options.format_on_save = false
 actions.formatters.lua, vim.notify = original, notify
 
 -- Floating terminal keeps its running buffer when hidden and reopened.
@@ -83,6 +117,12 @@ terminal.toggle()
 check(vim.api.nvim_buf_is_valid(term_buf), 'hiding killed terminal buffer')
 terminal.toggle()
 check(terminal.buf == term_buf, 'reopening replaced terminal buffer')
+-- When the shell exits, its window and buffer go away and the next toggle starts fresh.
+vim.fn.jobstop(vim.bo[term_buf].channel)
+wait_for(function() return not vim.api.nvim_buf_is_valid(term_buf) end, 'exited terminal buffer was kept')
+check(terminal.win == nil and vim.bo.buftype ~= 'terminal', 'exited terminal window was kept')
+terminal.toggle()
+check(vim.bo.buftype == 'terminal' and terminal.buf ~= term_buf, 'terminal did not restart after exit')
 terminal.toggle()
 
 -- Dashboard must not leak its window options into the next document.

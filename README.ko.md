@@ -50,7 +50,8 @@ Nix 환경 준비는 생략하므로 Nix 도구가 필요하면 준비된 환경
 - 자동 괄호, 텍스트 오브젝트, surround, 선택 영역 이동, 정렬, 인자 줄바꿈
 - 내장 주석 토글(`gcc`, `gc`), Git 변경 줄·diff 오버레이·커밋/변경 검색
 - 상태줄·버퍼 탭·단축키 안내·TODO와 색상 코드 강조
-- 버퍼 변경을 감지하는 비동기 포맷, 숨겨도 유지되는 플로팅 터미널
+- 버퍼 변경을 감지하는 비동기 포맷, 선택적 저장 시 포맷, 숨겨도 유지되는 플로팅 터미널
+- Tree-sitter 접기(기본은 모두 펼침, `za`로 토글, `zM` / `zR`로 모두 접기 / 펼치기)
 - 영구 undo, 마지막 커서 위치 복원, 프로젝트별 검색 범위
 
 별도 폰트 없이 동작합니다. 구문 색상은 Tree-sitter와 LSP semantic tokens를 사용하고,
@@ -64,16 +65,18 @@ Nix 환경 준비는 생략하므로 Nix 도구가 필요하면 준비된 환경
 | --- | --- |
 | `Space ff` / `Space fg` | 프로젝트 파일 / 본문 검색 |
 | `Space fb` / `Space fr` | 열린 버퍼 / 최근 파일 |
+| `Space fw` / `Space f.` | 커서 아래 단어를 프로젝트에서 검색 / 마지막 검색 창 다시 열기 |
 | `Space fh` / `Space fk` | 도움말 / 모든 단축키 검색 |
 | `Space fd` | 진단 검색 |
 | `Space e` | 파일 탐색기 |
 | `Space w` / `Space q` | 저장 / 창 닫기(미저장 변경 확인) |
 | `Space bn` / `Space bp` / `Space bd` | 다음 / 이전 / 현재 버퍼 닫기 |
 | `Space cf` | 포맷 실행(결과를 확인한 후 저장) |
-| `Space cr` / `Space ca` / `Space cs` | 심볼 이름 변경 / 코드 액션 / 심볼 목록 |
+| `Space cr` / `Space ca` | 심볼 이름 변경 / 코드 액션(선택 영역에서도 사용) |
+| `Space cs` / `Space cS` | 문서 심볼 / 워크스페이스 심볼 |
 | `Space cd` / `Space cq` | 현재 줄 진단 / 전체 진단 quickfix |
 | `Space ch` | LSP 인레이 힌트 토글 |
-| `gd` / `gr` / `gi` / `K` | 정의 / 참조 / 구현 / 문서 |
+| `gd` / `gr` / `gi` / `gy` / `K` | 정의 / 참조 / 구현 / 타입 정의 / 문서 |
 | `[d` / `]d` | 이전 / 다음 진단 |
 | `Space gg` / `Space gl` | Git 상태 / 커밋 검색 |
 | `Space gf` / `Space gh` / `Space gd` | Git 파일 / 변경 검색 / diff 오버레이 |
@@ -84,11 +87,14 @@ Nix 환경 준비는 생략하므로 Nix 도구가 필요하면 준비된 환경
 | `Ctrl-h/j/k/l` | 창 사이 이동 |
 | `Space y` / `Space p` | 시스템 클립보드 복사 / 붙여넣기 |
 | `Space un` / `Space uw` / `Space uh` | 상대 줄 번호 / 줄바꿈 / 상태 점검 |
+| `Space uf` | 이번 세션의 저장 시 포맷 토글 |
 | `sa` / `sd` / `sr` | surround 추가 / 삭제 / 변경 |
 | `Alt-h/j/k/l` | 현재 줄 또는 선택 영역 이동 |
 | `gS` / `ga` | 인자 줄바꿈 토글 / 정렬 |
 
-LSP 관련 키는 서버가 연결된 버퍼에서 사용할 수 있습니다. 검색 창에서는 입력으로 필터링하고
+LSP 관련 키는 서버가 연결된 버퍼에서 사용할 수 있습니다. 참조·구현·심볼은 검색 창으로 열립니다.
+Neovim 기본 `grn` / `gra` / `grr` / `gri` / `grt` / `grx`는 `gr`이 다음 키를 기다리게 만들기 때문에
+제거했고, 위 표의 키가 이를 대신합니다. 검색 창에서는 입력으로 필터링하고
 `Ctrl-n/p`로 선택, `Enter`로 열기, `Esc`로 닫기, `Tab`으로 미리보기를 전환합니다.
 파일 탐색기에서는 `g?`, 편집 기능은 `:help mini.surround` 등에서 더 볼 수 있습니다.
 
@@ -108,7 +114,11 @@ LSP 관련 키는 서버가 연결된 버퍼에서 사용할 수 있습니다. �
 | Rust | `rust-analyzer` | Rust 툴체인의 `rustfmt`가 있으면 사용, 없으면 LSP 포맷 지원 시 사용 |
 | C / C++ | `clangd` | 서버 포맷 사용 |
 | Shell | `bash-language-server` | 서버 포맷 사용(지원 시) |
+| Nix | 환경에 있는 `nixd`, 없으면 `nil` (자동 설치하지 않음) | 환경에 있는 `nixfmt` |
 | JSON / HTML / CSS / YAML / Markdown | 사용자 서버 추가 가능 | `prettier` |
+
+서버와 포맷터 명령은 시작할 때가 아니라 해당 종류의 파일을 처음 열 때 찾으며, 찾은 결과는
+캐시합니다. NV 실행 중에 설치한 도구는 몇 초 안에 인식되고, `:NvToolsInstall`은 즉시 다시 찾습니다.
 
 파서는 현재 파일타입을 Neovim의 언어 매핑으로 변환해 설치합니다. 예를 들어 `.tsx`는 `tsx`,
 `.py`는 `python`입니다. 파서가 요구하는 다른 파서도 함께 설치하며, upstream에서
@@ -134,7 +144,9 @@ nvim-treesitter 커밋별 디렉터리에 저장해 플러그인 업데이트 �
 
 포맷터가 없으면 연결된 LSP 중 포맷을 지원하는 서버 하나를 사용합니다. 외부 포맷터는
 표준입출력으로 버퍼만 변경하며 자동 저장하지 않습니다. 포맷 실행 중 편집하면 오래된 결과를
-버려 입력을 보존합니다. Rust 포맷 기본 edition은 2021이며 2024 프로젝트는 아래 사용자 설정에서 바꾸세요.
+버려 입력을 보존합니다. `format_on_save = true`로 설정하면 저장 직전에 최대 3초까지 기다려
+포맷하며, 포맷터가 실패하거나 없어도 저장은 그대로 진행됩니다. 특정 버퍼는
+`vim.b.nv_format_on_save = false`로 제외할 수 있습니다. Rust 포맷 기본 edition은 2021이며 2024 프로젝트는 아래 사용자 설정에서 바꾸세요.
 
 ## Nix 도구와 Python 가상환경
 
@@ -148,6 +160,7 @@ Python은 프로젝트별 `:NvPython` 선택, 사용자 `python.interpreter` 또
 호출한 셸·Nix 프로필의 Python, NV 런타임 Python 순서로 선택합니다.
 Pyright에 선택한 인터프리터를 전달하므로 그 환경에 설치한 라이브러리를 인식합니다.
 Python 포맷터와 새 터미널도 선택한 환경을 사용하며, 이미 열린 터미널은 기존 환경을 유지합니다.
+터미널의 셸이 종료되면 창이 닫히고, 다음 토글에서 새 셸을 시작합니다.
 
 ```sh
 python3 -m venv .venv
@@ -171,6 +184,7 @@ cp lua/user.example.lua lua/user.lua
 ```lua
 return {
   icons = true, -- Nerd Font를 쓸 때
+  format_on_save = true,
   tools = {
     auto_install = true,
     formatters = true,

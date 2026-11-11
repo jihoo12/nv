@@ -44,7 +44,9 @@ The Tree-sitter CLI is installed from its official binary through Mason if absen
 - Pairs, text objects, surrounds, selection movement, alignment, and argument split/join.
 - Native commenting, Git changes, diff overlays, commits, and hunk search.
 - Statusline, buffer tabs, key hints, TODO and color-code highlighting.
-- Asynchronous formatting that discards stale results, a persistent floating terminal, undo history, and cursor restoration.
+- Asynchronous formatting that discards stale results, optional format on save, a persistent floating
+  terminal, undo history, and cursor restoration.
+- Tree-sitter folds (all open by default; `za` toggles, `zM` / `zR` close / open all).
 
 No special font is required. Enable glyph icons only when using a Nerd Font. Debuggers and AI tools
 are not bundled.
@@ -57,15 +59,17 @@ are not bundled.
 | --- | --- |
 | `Space ff` / `Space fg` | Project files / project text |
 | `Space fb` / `Space fr` | Open buffers / recent files |
+| `Space fw` / `Space f.` | Word under cursor in project / reopen last picker |
 | `Space fh` / `Space fk` | Help / keymaps |
 | `Space fd` / `Space e` | Diagnostics / file explorer |
 | `Space w` / `Space q` | Save / close window, confirming unsaved changes |
 | `Space bn` / `Space bp` / `Space bd` | Next / previous / close buffer |
 | `Space cf` | Format buffer; inspect and save the result |
-| `Space cr` / `Space ca` / `Space cs` | Rename / code action / document symbols |
+| `Space cr` / `Space ca` | Rename / code action (also on a selection) |
+| `Space cs` / `Space cS` | Document symbols / workspace symbols |
 | `Space cd` / `Space cq` | Line diagnostics / diagnostics quickfix list |
 | `Space ch` | Toggle inlay hints |
-| `gd` / `gr` / `gi` / `K` | Definition / references / implementation / documentation |
+| `gd` / `gr` / `gi` / `gy` / `K` | Definition / references / implementation / type definition / documentation |
 | `[d` / `]d` | Previous / next diagnostic |
 | `Space gg` / `Space gl` | Git status / commits |
 | `Space gf` / `Space gh` / `Space gd` | Git files / hunks / diff overlay |
@@ -76,11 +80,14 @@ are not bundled.
 | `Ctrl-h/j/k/l` | Move between windows |
 | `Space y` / `Space p` | System clipboard copy / paste |
 | `Space un` / `Space uw` / `Space uh` | Relative numbers / wrapping / health check |
+| `Space uf` | Toggle format on save for this session |
 | `sa` / `sd` / `sr` | Add / delete / replace surround |
 | `Alt-h/j/k/l` | Move line or selection |
 | `gS` / `ga` | Split/join arguments / align |
 
-LSP keys are available after a server attaches. In a picker, type to filter, use `Ctrl-n/p` to move,
+LSP keys are available after a server attaches. References, implementations, and symbols open in
+a picker. Neovim's built-in `grn` / `gra` / `grr` / `gri` / `grt` / `grx` are removed, because they
+would make `gr` wait for a further key; the keys above replace them. In a picker, type to filter, use `Ctrl-n/p` to move,
 `Enter` to open, `Esc` to close, and `Tab` to toggle preview. Use `g?` in the explorer and
 `:help mini.surround` for editing details. Live grep needs ripgrep (`rg`); file search can fall back
 to other tools. Clipboard support depends on your platform's provider; see `:checkhealth vim.provider`.
@@ -99,7 +106,12 @@ ones are installed into NV's Mason directory. Concurrent requests for one packag
 | Rust | rust-analyzer | rustfmt from your Rust toolchain, or LSP when supported |
 | C / C++ | clangd | LSP formatting |
 | Shell | bash-language-server | LSP formatting when supported |
+| Nix | nixd, otherwise nil, if your environment provides one | nixfmt from your environment |
 | JSON / HTML / CSS / YAML / Markdown | Add a server if needed | Prettier |
+
+Server and formatter commands are looked up when a file of their type first opens, not at startup,
+and lookups are cached. A tool you install while NV is running is picked up within a couple of
+seconds; `:NvToolsInstall` forces a fresh search.
 
 Parsers follow the filetype, including TSX, JSX, and shell aliases. Parser dependencies are installed
 together. Parsers marked unmaintained or unsupported upstream are excluded from automatic installs.
@@ -118,6 +130,9 @@ Use these commands to inspect or retry:
 A failed install is not retried on every file switch. Fix its cause and run `:NvToolsInstall`.
 Installed language tools are updated explicitly through `:Mason`. External formatters use stdin/stdout,
 edit the buffer, and do not save it. If you edit during formatting, the outdated result is discarded.
+With `format_on_save = true`, the buffer is formatted just before each write, waiting up to three
+seconds; a failed or missing formatter never blocks the save. Set `vim.b.nv_format_on_save = false`
+to exempt a buffer.
 If no external formatter is available, NV uses one attached LSP with formatting support.
 
 ## Nix and existing tools
@@ -177,7 +192,8 @@ Inside NV:
 Selections last for the editor session. Changing one updates that project's running Pyright client;
 other workspaces retain their own environments. Python formatting first looks in the selected
 interpreter's bin directory. Newly created floating terminals receive the selected environment too;
-an existing terminal keeps its original process environment.
+an existing terminal keeps its original process environment. When its shell exits, the terminal
+closes and the next toggle starts a new one.
 
 Project Pyright configuration remains authoritative. Pyright's static-analysis limitations still
 apply, including executable import hooks used by some editable installs. See its official
@@ -195,6 +211,7 @@ cp lua/user.example.lua lua/user.lua
 ```lua
 return {
   icons = true,
+  format_on_save = true,
   python = {
     auto_detect = true,
     -- interpreter = function(root) return root .. '/.venv/bin/python' end,
@@ -273,7 +290,7 @@ NV_TEST_NIX_PYTHON=/path/to/python-with-requests sh tests/nix-environment.sh
 
 Tests use temporary XDG directories. Python 3 and Git are required. Deterministic checks cover startup,
 plugins, a real mock LSP connection, formatter success/failure/stale edits, terminal reuse, dashboard
-options, health, bootstrap failure cleanup, install deduplication, opt-outs, environment selection,
+options, health, format on save, terminal restart, lookup caching, bootstrap failure cleanup, install deduplication, opt-outs, environment selection,
 and offline mode. The download test checks Lua, Python, TypeScript, TSX, the managed Tree-sitter CLI,
 and definition lookup of locally pip-installed libraries in two project virtualenvs, including live
 interpreter changes. It then repeats using installed data offline.

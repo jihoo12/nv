@@ -2,6 +2,7 @@
 return {
   theme = 'nv',
   icons = false, -- Set true if your terminal uses a Nerd Font.
+  format_on_save = false, -- Format just before each write; toggle for a session with Space uf.
   python = {
     auto_detect = true, -- Active virtualenv, project .venv/venv, Conda, then caller/Nix Python.
     -- interpreter = '/path/to/venv/bin/python',
