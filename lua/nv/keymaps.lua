@@ -38,6 +38,11 @@ function M.setup(plugins)
     vim.cmd.stopinsert()
     require('nv.terminal').toggle()
   end, 'Toggle terminal')
+  -- Tab accepts the highlighted completion, or the first one when none is highlighted yet.
+  vim.keymap.set('i', '<Tab>', function()
+    if vim.fn.pumvisible() == 0 then return '<Tab>' end
+    return vim.fn.complete_info({ 'selected' }).selected == -1 and '<C-n><C-y>' or '<C-y>'
+  end, { expr = true, desc = 'Accept completion' })
   map('n', '<C-h>', '<C-w>h', 'Window left')
   map('n', '<C-j>', '<C-w>j', 'Window below')
   map('n', '<C-k>', '<C-w>k', 'Window above')

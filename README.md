@@ -82,6 +82,7 @@ are not bundled.
 | `Space un` / `Space uw` / `Space uh` | Relative numbers / wrapping / health check |
 | `Space uf` | Toggle format on save for this session |
 | `Space ud` / `Space uD` | Toggle diagnostics everywhere / in this buffer |
+| `Tab` in Insert mode | Accept the highlighted completion, or the first one; `Ctrl-n/p` to choose |
 | `sa` / `sd` / `sr` | Add / delete / replace surround |
 | `Alt-h/j/k/l` | Move line or selection |
 | `gS` / `ga` | Split/join arguments / align |

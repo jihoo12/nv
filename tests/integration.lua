@@ -67,6 +67,17 @@ press('<Space>uD')
 check(vim.diagnostic.is_enabled({ bufnr = 0 }), 'buffer diagnostics toggle did not re-enable')
 vim.notify = quiet_notify
 
+-- Tab accepts a completion (the first when none is selected) and stays a plain Tab otherwise.
+vim.cmd.enew()
+vim.bo.expandtab = false
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'nvcompletionword', '' })
+vim.api.nvim_win_set_cursor(0, { 2, 0 })
+press('invcomp<C-x><C-n><Tab><Esc>')
+check(vim.api.nvim_get_current_line() == 'nvcompletionword', 'Tab did not accept the first completion: ' .. vim.api.nvim_get_current_line())
+press('cc<Tab>x<Esc>')
+check(vim.api.nvim_get_current_line() == '\tx', 'Tab without a completion menu is not a plain Tab')
+vim.bo.modified = false
+
 -- Exercise the actual file browser and picker, including the source directory.
 require('mini.files').open(root)
 check(require('mini.files').get_explorer_state() ~= nil, 'file explorer did not open')
